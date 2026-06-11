@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="StudyQuest - ゲーミフィケーションで学習を楽しくする勉強管理アプリ。目標設定、タスク管理、XP・レベルシステムで毎日の勉強をRPGに変えよう。">
+  <title>StudyQuest - 勉強管理アプリ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- トースト通知 -->
+  <div id="toast-container" role="alert" aria-live="polite"></div>
+
+  <!-- 紙吹雪コンテナ -->
+  <div id="confetti-container" aria-hidden="true"></div>
+
+  <!-- ===== 認証画面 ===== -->
+  <div id="auth-container" role="main">
+    <div class="auth-card">
+      <div class="auth-logo">
+        <span class="logo-icon">⚡</span>
+        <h1 class="auth-title">StudyQuest</h1>
+        <p class="auth-subtitle">学習をRPGに変えよう</p>
+      </div>
+
+      <div class="auth-tabs" role="tablist">
+        <button class="auth-tab active" id="tab-login" role="tab" aria-selected="true" aria-controls="panel-login">ログイン</button>
+        <button class="auth-tab" id="tab-register" role="tab" aria-selected="false" aria-controls="panel-register">新規登録</button>
+      </div>
+
+      <div id="panel-login" role="tabpanel" aria-labelledby="tab-login">
+        <div class="input-group">
+          <label for="email-login">メールアドレス</label>
+          <input type="email" id="email-login" placeholder="example@email.com" autocomplete="email">
+        </div>
+        <div class="input-group">
+          <label for="password-login">パスワード</label>
+          <input type="password" id="password-login" placeholder="パスワード" autocomplete="current-password">
+        </div>
+        <button id="loginBtn" class="btn btn-primary btn-full">ログイン</button>
+      </div>
+
+      <div id="panel-register" role="tabpanel" aria-labelledby="tab-register" hidden>
+        <div class="input-group">
+          <label for="email-register">メールアドレス</label>
+          <input type="email" id="email-register" placeholder="example@email.com" autocomplete="email">
+        </div>
+        <div class="input-group">
+          <label for="password-register">パスワード（6文字以上）</label>
+          <input type="password" id="password-register" placeholder="パスワード" autocomplete="new-password">
+        </div>
+        <button id="registerBtn" class="btn btn-primary btn-full">新規登録</button>
+      </div>
+
+      <div id="authStatus" class="auth-status" role="status"></div>
+    </div>
+  </div>
+
+  <!-- ===== メイン画面 ===== -->
+  <div id="app-container" style="display:none;" role="main">
+
+    <!-- ヘッダー -->
+    <header class="app-header">
+      <div class="header-brand">
+        <span class="logo-icon">⚡</span>
+        <span class="brand-name">StudyQuest</span>
+      </div>
+      <div class="header-stats" id="headerStats">
+        <!-- JS で埋める -->
+      </div>
+      <button id="logoutBtn" class="btn btn-ghost btn-sm">ログアウト</button>
+    </header>
+
+    <div class="app-body">
+
+      <!-- ===== 左サイドバー：プロフィール＋バッジ＋ストーリー ===== -->
+      <aside class="sidebar">
+
+        <!-- プロフィールカード -->
+        <section class="card profile-card" aria-label="プロフィール">
+          <div id="avatar" class="avatar" aria-label="アバター"></div>
+          <div class="profile-info">
+            <p id="profileLevel" class="profile-level"></p>
+            <div class="xp-bar-wrap">
+              <div class="xp-bar" id="xpBar"></div>
+            </div>
+            <p id="profileXP" class="profile-xp-text"></p>
+          </div>
+          <div class="streak-badge" id="streakBadge">
+            <span>🔥</span>
+            <span id="streakCount">0</span>日連続
+          </div>
+        </section>
+
+        <!-- バッジ -->
+        <section class="card" aria-label="バッジ一覧">
+          <h2 class="card-title">🏅 バッジ</h2>
+          <ul id="badgeContainer" class="badge-list"></ul>
+        </section>
+
+        <!-- ストーリー -->
+        <section class="card" aria-label="ストーリー">
+          <h2 class="card-title">📖 ストーリー</h2>
+          <div id="storyContainer" class="story-container"></div>
+        </section>
+
+        <!-- ランキング -->
+        <section class="card" aria-label="ランキング">
+          <h2 class="card-title">🏆 ランキング</h2>
+          <div id="rankingStatus" class="ranking-status"></div>
+        </section>
+
+      </aside>
+
+      <!-- ===== メインコンテンツ ===== -->
+      <main class="main-content">
+
+        <!-- ゴール追加フォーム -->
+        <section class="card" aria-label="目標追加">
+          <h2 class="card-title">🎯 目標を追加</h2>
+          <div class="goal-add-form">
+            <input type="text" id="goalInput" placeholder="目標タイトルを入力..." aria-label="目標タイトル">
+            <input type="date" id="goalDueDate" aria-label="期限日">
+            <input type="number" id="goalTargetMinutes" placeholder="目標時間（分）" min="1" aria-label="目標時間（分）">
+            <button id="addGoalBtn" class="btn btn-primary">+ 目標追加</button>
+          </div>
+        </section>
+
+        <!-- ゴール一覧 -->
+        <section aria-label="目標一覧">
+          <div id="goalsContainer"></div>
+        </section>
+
+        <!-- タスク管理 -->
+        <section class="card" aria-label="タスク管理">
+          <h2 class="card-title">📋 タスク管理</h2>
+          <div class="task-add-form">
+            <input type="text" id="taskInput" placeholder="タスク内容を入力..." aria-label="タスク内容">
+            <select id="taskType" aria-label="タスク種別">
+              <option value="day">1日タスク</option>
+              <option value="week">週間タスク</option>
+            </select>
+            <button id="addGlobalTaskBtn" class="btn btn-primary">+ タスク追加</button>
+          </div>
+
+          <div class="task-columns">
+            <div class="task-column">
+              <h3 class="task-column-title day-label">📅 1日タスク</h3>
+              <ul id="dayTasks" class="task-list"></ul>
+            </div>
+            <div class="task-column">
+              <h3 class="task-column-title week-label">📆 週間タスク</h3>
+              <ul id="weekTasks" class="task-list"></ul>
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <script type="module" src="script.js"></script>
+</body>
+</html>
