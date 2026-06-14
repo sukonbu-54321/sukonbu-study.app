@@ -121,7 +121,7 @@ function getRemainingDays(dueDate) {
   return Math.ceil((end - now) / (1000 * 60 * 60 * 24));
 }
 
-function createProgressBar(current, target) {
+function createProgressBar(current, target, unit = "分") {
   const pct = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0;
 
   const wrap = document.createElement("div");
@@ -129,7 +129,7 @@ function createProgressBar(current, target) {
 
   const label = document.createElement("div");
   label.className = "progress-label";
-  label.innerHTML = `<span>累計 ${current} / ${target} 分</span><span class="pct">${pct}%</span>`;
+  label.innerHTML = `<span>累計 ${current} / ${target} ${unit}</span><span class="pct">${pct}%</span>`;
 
   const bar = document.createElement("div");
   bar.className = "progress-bar";
@@ -450,7 +450,10 @@ async function getTodayProgress(goalId) {
     where("date",   "==", today));
   const snap = await getDocs(q);
   let total = 0;
-  snap.forEach(d => { total += (d.data().minutes || 0); });
+  snap.forEach(d => {
+    const data = d.data();
+    total += (data.rounds !== undefined ? data.rounds : Math.round((data.minutes || 0) / 25));
+  });
   return total;
 }
 
@@ -463,17 +466,20 @@ async function getWeeklyProgress(goalId) {
     where("week",   "==", week));
   const snap = await getDocs(q);
   let total = 0;
-  snap.forEach(d => { total += (d.data().minutes || 0); });
+  snap.forEach(d => {
+    const data = d.data();
+    total += (data.rounds !== undefined ? data.rounds : Math.round((data.minutes || 0) / 25));
+  });
   return total;
 }
 
-async function updateProgressDisplay(goalId, targetMinutes) {
-  const todayMin  = await getTodayProgress(goalId);
-  const weekMin   = await getWeeklyProgress(goalId);
+async function updateProgressDisplay(goalId) {
+  const todayRounds = await getTodayProgress(goalId);
+  const weekRounds  = await getWeeklyProgress(goalId);
   const todayEl = document.getElementById(`today-${goalId}`);
   const weekEl  = document.getElementById(`week-${goalId}`);
-  if (todayEl) todayEl.querySelector(".value").textContent = `${todayMin} 分`;
-  if (weekEl)  weekEl.querySelector(".value").textContent  = `${weekMin} 分`;
+  if (todayEl) todayEl.querySelector(".value").textContent = `${todayRounds} 回`;
+  if (weekEl)  weekEl.querySelector(".value").textContent  = `${weekRounds} 回`;
 }
 
 // ================================================================
@@ -484,24 +490,25 @@ document.getElementById("addGoalBtn")?.addEventListener("click", async () => {
   if (!coll) return;
   const title         = document.getElementById("goalInput").value.trim();
   const dueDate       = document.getElementById("goalDueDate").value;
-  const targetMinutes = parseInt(document.getElementById("goalTargetMinutes").value);
+  const targetRounds  = parseInt(document.getElementById("goalTargetRounds").value);
 
   if (!title) { showToast("目標タイトルを入力してください", "warning"); return; }
   if (!dueDate) { showToast("期限日を入力してください", "warning"); return; }
-  if (!targetMinutes || targetMinutes <= 0) { showToast("目標時間を正しく入力してください", "warning"); return; }
+  if (!targetRounds || targetRounds <= 0) { showToast("目標回数を正しく入力してください", "warning"); return; }
 
   try {
     await addDoc(coll, {
       title,
       dueDate,
-      targetMinutes,
+      targetRounds,
       total: 0,
+      completedRounds: 0,
       tasks: [],
       createdAt: new Date().toISOString()
     });
     document.getElementById("goalInput").value          = "";
     document.getElementById("goalDueDate").value        = "";
-    document.getElementById("goalTargetMinutes").value  = "";
+    document.getElementById("goalTargetRounds").value   = "";
     showToast(`🎯 目標「${title}」を追加しました！`, "success");
     await loadGoals();
   } catch (e) {
@@ -571,7 +578,7 @@ function renderGoalCard(goalData, container) {
     const isOpen = section.classList.toggle("open");
     toggleBtn.textContent = "▶";
     header.setAttribute("aria-expanded", String(isOpen));
-    if (isOpen) updateProgressDisplay(goalId, goalData.targetMinutes);
+    if (isOpen) updateProgressDisplay(goalId);
   };
   header.addEventListener("click", toggleHandler);
   header.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") toggleHandler(e); });
@@ -588,7 +595,9 @@ function renderGoalCard(goalData, container) {
   const inner = document.createElement("div");
   inner.className = "goal-details-inner";
 
-  inner.appendChild(createProgressBar(goalData.total || 0, goalData.targetMinutes || 0));
+  const completedRounds = goalData.completedRounds || Math.round((goalData.total || 0) / 25) || 0;
+  const targetRounds = goalData.targetRounds || Math.round((goalData.targetMinutes || 25) / 25) || 1;
+  inner.appendChild(createProgressBar(completedRounds, targetRounds, "回"));
 
   const statsWrap = document.createElement("div");
   statsWrap.className = "progress-stats";
@@ -613,24 +622,22 @@ function renderGoalCard(goalData, container) {
 
   const timeInputEl = document.createElement("input");
   timeInputEl.type = "number";
-  timeInputEl.placeholder = "時間(分)";
+  timeInputEl.placeholder = "回数 (25分集中/5分休憩)";
   timeInputEl.min = "1";
-  timeInputEl.setAttribute("aria-label", "時間（分）");
+  timeInputEl.setAttribute("aria-label", "回数");
 
   const addTaskBtn = document.createElement("button");
   addTaskBtn.className   = "btn btn-success btn-sm";
   addTaskBtn.textContent = "+ タスク";
   addTaskBtn.addEventListener("click", async () => {
     const task = taskInputEl.value.trim();
-    const time = parseInt(timeInputEl.value);
+    const rounds = parseInt(timeInputEl.value);
     if (!task) { showToast("タスク内容を入力してください", "warning"); return; }
-    if (!time || time <= 0) { showToast("時間（分）を正しく入力してください", "warning"); return; }
-    const newTasks = [...(goalData.tasks || []), { task, time }];
-    const newTotal = (goalData.total || 0) + time;
+    if (!rounds || rounds <= 0) { showToast("回数を正しく入力してください", "warning"); return; }
+    const newTasks = [...(goalData.tasks || []), { task, rounds }];
     try {
       await updateDoc(doc(db, "users", currentUser.uid, "goals", goalId), {
-        tasks: newTasks,
-        total: newTotal
+        tasks: newTasks
       });
       showToast("タスクを追加しました ✅", "success");
       await addXP(10);
@@ -641,46 +648,9 @@ function renderGoalCard(goalData, container) {
     }
   });
 
-  const addProgressBtn = document.createElement("button");
-  addProgressBtn.className   = "btn btn-primary btn-sm";
-  addProgressBtn.textContent = "⏱ 時間追加";
-  addProgressBtn.addEventListener("click", async () => {
-    const minutesStr = prompt("今日の勉強時間（分）を入力してください", "30");
-    if (minutesStr === null) return;
-    const minutes = parseInt(minutesStr);
-    if (!minutes || minutes <= 0) { showToast("正しい時間を入力してください", "warning"); return; }
-    const now = new Date();
-    try {
-      await addDoc(userCollection("progress"), {
-        goalId,
-        minutes,
-        date: todayISO(), // タイムゾーンバグを修正
-        week: getWeekNumber(now)
-      });
-      const newTotal = (goalData.total || 0) + minutes;
-      await updateDoc(doc(db, "users", currentUser.uid, "goals", goalId), {
-        total: newTotal
-      });
-
-      if (goalData.targetMinutes && newTotal >= goalData.targetMinutes) {
-        celebrateGoal(goalData.title);
-        await addXP(100);
-      } else {
-        await addXP(minutes >= 30 ? 20 : 10);
-        showToast(`⏱ ${minutes}分 記録しました！`, "success");
-      }
-
-      await loadGoals();
-    } catch (e) {
-      console.error("addProgress error:", e);
-      showToast("勉強時間の記録に失敗しました", "error");
-    }
-  });
-
   taskFormGrid.appendChild(taskInputEl);
   taskFormGrid.appendChild(timeInputEl);
   taskFormGrid.appendChild(addTaskBtn);
-  taskFormGrid.appendChild(addProgressBtn);
   inner.appendChild(taskFormGrid);
 
   const ul = document.createElement("ul");
@@ -688,12 +658,26 @@ function renderGoalCard(goalData, container) {
   (goalData.tasks || []).forEach((t, i) => {
     const li = document.createElement("li");
     li.className = "goal-task-item";
+    
     const textSpan = document.createElement("span");
     textSpan.className = "task-text";
     textSpan.textContent = t.task;
+    
+    const rounds = t.rounds || Math.round((t.time || 25) / 25) || 1;
     const timeSpan = document.createElement("span");
     timeSpan.className = "task-time";
-    timeSpan.textContent = `${t.time}分`;
+    timeSpan.textContent = `${rounds}回`;
+    
+    const startBtn = document.createElement("button");
+    startBtn.className = "btn btn-primary btn-sm";
+    startBtn.textContent = "▶ スタート";
+    startBtn.style.padding = "4px 8px";
+    startBtn.style.fontSize = "12px";
+    startBtn.style.minHeight = "auto";
+    startBtn.addEventListener("click", () => {
+      startPomodoro(goalId, i, t, goalData);
+    });
+
     const delBtn = document.createElement("button");
     delBtn.className   = "btn-icon";
     delBtn.textContent = "🗑";
@@ -701,11 +685,9 @@ function renderGoalCard(goalData, container) {
     delBtn.addEventListener("click", async () => {
       const newTasks = [...(goalData.tasks || [])];
       newTasks.splice(i, 1);
-      const newTotal = Math.max(0, (goalData.total || 0) - t.time);
       try {
         await updateDoc(doc(db, "users", currentUser.uid, "goals", goalId), {
-          tasks: newTasks,
-          total: newTotal
+          tasks: newTasks
         });
         showToast("タスクを削除しました", "info");
         await loadGoals();
@@ -714,25 +696,88 @@ function renderGoalCard(goalData, container) {
         showToast("削除に失敗しました", "error");
       }
     });
+    
     li.appendChild(textSpan);
     li.appendChild(timeSpan);
+    li.appendChild(startBtn);
     li.appendChild(delBtn);
     ul.appendChild(li);
   });
   inner.appendChild(ul);
+
+  // ===== 履歴セクション =====
+  const historyWrap = document.createElement("div");
+  historyWrap.className = "goal-history-section";
+  
+  const historyTitle = document.createElement("div");
+  historyTitle.className = "goal-history-title";
+  historyTitle.style.display = "flex";
+  historyTitle.style.alignItems = "center";
+  historyTitle.style.justifyContent = "space-between";
+  historyTitle.innerHTML = `<span>📊 ポモドーロ学習履歴</span>`;
+  
+  const historyList = document.createElement("div");
+  historyList.className = "goal-history-list";
+  
+  const toggleHistBtn = document.createElement("button");
+  toggleHistBtn.className = "btn-toggle-history";
+  toggleHistBtn.textContent = "表示/非表示";
+  toggleHistBtn.addEventListener("click", () => {
+    historyList.classList.toggle("collapsed");
+  });
+  
+  historyTitle.appendChild(toggleHistBtn);
+  historyWrap.appendChild(historyTitle);
+  
+  if (goalData.pomodoroHistory && goalData.pomodoroHistory.length > 0) {
+    goalData.pomodoroHistory.forEach(item => {
+      const itemEl = document.createElement("div");
+      itemEl.className = "goal-history-item";
+      
+      const meta = document.createElement("div");
+      meta.className = "goal-history-meta";
+      meta.innerHTML = `<span>📅 ${item.date}</span><span>⏱ ${item.minutes || (item.rounds * 25)}分 (${item.rounds}回)</span>`;
+      
+      const task = document.createElement("div");
+      task.className = "goal-history-task";
+      task.textContent = item.task;
+      
+      itemEl.appendChild(meta);
+      itemEl.appendChild(task);
+      
+      if (item.reflection) {
+        const refl = document.createElement("div");
+        refl.className = "goal-history-reflection";
+        refl.textContent = `気づき・学び: ${item.reflection}`;
+        itemEl.appendChild(refl);
+      }
+      
+      historyList.appendChild(itemEl);
+    });
+  } else {
+    const emptyMsg = document.createElement("div");
+    emptyMsg.style.color = "var(--text-muted)";
+    emptyMsg.style.fontSize = "12px";
+    emptyMsg.style.textAlign = "center";
+    emptyMsg.textContent = "履歴はまだありません。";
+    historyList.appendChild(emptyMsg);
+  }
+  historyWrap.appendChild(historyList);
+  inner.appendChild(historyWrap);
 
   const actions = document.createElement("div");
   actions.className = "goal-actions";
 
   const editTargetBtn = document.createElement("button");
   editTargetBtn.className   = "btn btn-ghost btn-sm";
-  editTargetBtn.textContent = "⚙ 目標時間編集";
+  editTargetBtn.textContent = "⚙ 目標回数編集";
   editTargetBtn.addEventListener("click", async () => {
-    const newTarget = parseInt(prompt("新しい目標時間（分）を入力", goalData.targetMinutes || ""));
+    const currentTarget = goalData.targetRounds || Math.round((goalData.targetMinutes || 25) / 25) || 1;
+    const newTarget = parseInt(prompt("新しい目標回数（ポモドーロ数）を入力", currentTarget));
     if (!newTarget || newTarget <= 0) return;
     try {
-      await updateDoc(doc(db, "users", currentUser.uid, "goals", goalId), { targetMinutes: newTarget });
-      showToast("目標時間を更新しました", "success");
+      await updateDoc(doc(db, "users", currentUser.uid, "goals", goalId), { targetRounds: newTarget });
+      showToast("目標回数を更新しました", "success");
       await loadGoals();
     } catch (e) {
       showToast("更新に失敗しました", "error");
@@ -779,7 +824,7 @@ function renderGoalCard(goalData, container) {
   section.appendChild(details);
   container.appendChild(section);
 
-  updateProgressDisplay(goalId, goalData.targetMinutes);
+  updateProgressDisplay(goalId);
 }
 
 // ================================================================
@@ -842,12 +887,30 @@ async function loadGlobalTasks() {
       hint.className = "delete-hint";
       hint.textContent = "クリックで完了";
 
+      const deleteBtn = document.createElement("button");
+      deleteBtn.className = "btn-delete-task";
+      deleteBtn.textContent = "🗑";
+      deleteBtn.title = "タスクを消去";
+      deleteBtn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        if (!confirm(`タスク「${t.text}」を消去しますか？（※XPは獲得できません）`)) return;
+        try {
+          await deleteDoc(doc(db, "users", currentUser.uid, "tasks", t.id));
+          showToast("📋 タスクを消去しました", "info");
+          await loadGlobalTasks();
+        } catch (err) {
+          console.error("deleteGlobalTask error:", err);
+          showToast("消去に失敗しました", "error");
+        }
+      });
+
       li.appendChild(checkSpan);
       li.appendChild(label);
       li.appendChild(hint);
+      li.appendChild(deleteBtn);
       li.setAttribute("role", "button");
       li.setAttribute("tabindex", "0");
-      li.setAttribute("aria-label", `${t.text} — クリックで完了`);
+      li.setAttribute("aria-label", `${t.text} — クリックで完了、ゴミ箱アイコンで消去`);
 
       const completeTask = async () => {
         try {
@@ -882,3 +945,303 @@ async function resetDailyProgress() {
 async function resetWeeklyProgress() {
   // 同上
 }
+
+// ================================================================
+// ポモドーロタイマーロジック
+// ================================================================
+let pomodoroInterval = null;
+let pomodoroState = "idle"; // focus, overtime, break
+let pomodoroTimeLeft = 0;
+let pomodoroOvertimeSeconds = 0;
+let pomodoroCurrentRound = 1;
+let pomodoroTotalRounds = 1;
+let pomodoroFocusMinutesAcc = 0;
+let currentGoalId = "";
+let currentTaskIndex = -1;
+let currentTaskText = "";
+let goalDataForTimer = null;
+
+const FOCUS_DURATION = 25 * 60; // 25分
+const BREAK_DURATION = 5 * 60;  // 5分
+const CIRCUMFERENCE = 2 * Math.PI * 90; // 565.48
+
+window.startPomodoro = function(goalId, taskIndex, task, goalData) {
+  // メイン画面を非表示、タイマー画面を表示
+  document.getElementById("app-container").style.display = "none";
+  document.getElementById("pomodoro-container").style.display = "flex";
+  
+  // 状態初期化
+  currentGoalId = goalId;
+  currentTaskIndex = taskIndex;
+  currentTaskText = task.task;
+  goalDataForTimer = goalData;
+  
+  pomodoroCurrentRound = 1;
+  pomodoroTotalRounds = task.rounds || Math.round((task.time || 25) / 25) || 1;
+  pomodoroFocusMinutesAcc = 0;
+  
+  document.getElementById("pomodoro-task-name").textContent = currentTaskText;
+  
+  // UI初期設定
+  document.body.classList.remove("pomodoro-focus-ended");
+  document.getElementById("pomodoro-alert").style.display = "none";
+  document.getElementById("pomodoro-overtime-display").style.display = "none";
+  document.getElementById("pomodoro-next-dialog").style.display = "none";
+  document.getElementById("pomodoro-reflection").style.display = "none";
+  
+  startFocusSession();
+};
+
+function updateTimerCircle(ratio, strokeColor = null) {
+  const circle = document.getElementById("timer-progress-circle");
+  if (!circle) return;
+  const offset = CIRCUMFERENCE * (1 - ratio);
+  circle.style.strokeDashoffset = offset;
+  if (strokeColor) {
+    circle.style.stroke = strokeColor;
+  }
+}
+
+function startFocusSession() {
+  clearInterval(pomodoroInterval);
+  pomodoroState = "focus";
+  pomodoroTimeLeft = FOCUS_DURATION;
+  pomodoroOvertimeSeconds = 0;
+  
+  document.body.classList.remove("pomodoro-focus-ended");
+  document.getElementById("pomodoro-status").textContent = "集中時間";
+  document.getElementById("pomodoro-status").style.color = "var(--accent)";
+  document.getElementById("pomodoro-round-indicator").textContent = `${pomodoroCurrentRound} / ${pomodoroTotalRounds} 回目`;
+  document.getElementById("pomodoro-alert").style.display = "none";
+  document.getElementById("pomodoro-overtime-display").style.display = "none";
+  document.getElementById("pomodoro-action-btn").style.display = "none";
+  
+  updateTimerCircle(1, "var(--accent)");
+  
+  pomodoroInterval = setInterval(tickTimer, 1000);
+  tickTimer(); // 初回描画
+}
+
+function startBreakSession() {
+  clearInterval(pomodoroInterval);
+  pomodoroState = "break";
+  pomodoroTimeLeft = BREAK_DURATION;
+  
+  document.body.classList.remove("pomodoro-focus-ended");
+  document.getElementById("pomodoro-status").textContent = "休憩時間";
+  document.getElementById("pomodoro-status").style.color = "var(--accent-2)";
+  document.getElementById("pomodoro-alert").style.display = "none";
+  document.getElementById("pomodoro-overtime-display").style.display = "none";
+  document.getElementById("pomodoro-action-btn").style.display = "none";
+  
+  updateTimerCircle(1, "var(--accent-2)");
+  
+  pomodoroInterval = setInterval(tickTimer, 1000);
+  tickTimer();
+}
+
+function tickTimer() {
+  if (pomodoroState === "focus") {
+    if (pomodoroTimeLeft > 0) {
+      pomodoroTimeLeft--;
+      renderTime(pomodoroTimeLeft);
+      updateTimerCircle(pomodoroTimeLeft / FOCUS_DURATION);
+    } else {
+      // 集中時間終了 -> 延長カウントアップ状態へ
+      transitionToOvertime();
+    }
+  } else if (pomodoroState === "overtime") {
+    pomodoroOvertimeSeconds++;
+    renderOvertime(pomodoroOvertimeSeconds);
+  } else if (pomodoroState === "break") {
+    if (pomodoroTimeLeft > 0) {
+      pomodoroTimeLeft--;
+      renderTime(pomodoroTimeLeft);
+      updateTimerCircle(pomodoroTimeLeft / BREAK_DURATION);
+    } else {
+      // 休憩時間終了 -> 繰り返し/戻るダイアログ表示
+      transitionToBreakEnd();
+    }
+  }
+}
+
+function renderTime(seconds) {
+  const m = String(Math.floor(seconds / 60)).padStart(2, '0');
+  const s = String(seconds % 60).padStart(2, '0');
+  document.getElementById("pomodoro-timer-text").textContent = `${m}:${s}`;
+}
+
+function transitionToOvertime() {
+  clearInterval(pomodoroInterval);
+  pomodoroState = "overtime";
+  
+  // 視覚的にお知らせ (背景赤色点滅、インジケータ色変更)
+  document.body.classList.add("pomodoro-focus-ended");
+  
+  document.getElementById("pomodoro-status").textContent = "集中終了！";
+  document.getElementById("pomodoro-status").style.color = "var(--danger)";
+  
+  // 延長時間テキスト表示
+  const otDisplay = document.getElementById("pomodoro-overtime-display");
+  otDisplay.style.display = "block";
+  otDisplay.textContent = "+00:00";
+  
+  // 警告ボックスと休憩へボタンを表示
+  const alertBox = document.getElementById("pomodoro-alert");
+  alertBox.style.display = "block";
+  alertBox.innerHTML = `🎉 集中時間が終了しました！<br>作業をキリの良いところで終えて、ボタンを押して休憩に入ってください。`;
+  
+  const actionBtn = document.getElementById("pomodoro-action-btn");
+  actionBtn.style.display = "block";
+  actionBtn.textContent = "休憩を開始する ☕";
+  
+  // カウントアップタイマーを始動
+  pomodoroInterval = setInterval(tickTimer, 1000);
+}
+
+function renderOvertime(seconds) {
+  const m = String(Math.floor(seconds / 60)).padStart(2, '0');
+  const s = String(seconds % 60).padStart(2, '0');
+  document.getElementById("pomodoro-overtime-display").textContent = `+${m}:${s}`;
+}
+
+// 「休憩を開始する」ボタン押下時
+document.getElementById("pomodoro-action-btn")?.addEventListener("click", () => {
+  if (pomodoroState === "overtime") {
+    // 延長時間を含めた集中時間（分）を加算
+    const elapsedMinutes = 25 + Math.ceil(pomodoroOvertimeSeconds / 60);
+    pomodoroFocusMinutesAcc += elapsedMinutes;
+    
+    // 休憩開始
+    startBreakSession();
+  }
+});
+
+function transitionToBreakEnd() {
+  clearInterval(pomodoroInterval);
+  document.getElementById("pomodoro-status").textContent = "休憩終了";
+  document.getElementById("pomodoro-timer-text").textContent = "00:00";
+  
+  // 繰り返しますかダイアログを表示
+  document.getElementById("pomodoro-next-dialog").style.display = "block";
+}
+
+// 繰り返すボタン
+document.getElementById("pomodoro-repeat-btn")?.addEventListener("click", () => {
+  document.getElementById("pomodoro-next-dialog").style.display = "none";
+  // ラウンドを進めて再開
+  pomodoroCurrentRound++;
+  startFocusSession();
+});
+
+// 終了して戻るボタン
+document.getElementById("pomodoro-finish-early-btn")?.addEventListener("click", () => {
+  document.getElementById("pomodoro-next-dialog").style.display = "none";
+  showReflectionScreen();
+});
+
+function showReflectionScreen() {
+  clearInterval(pomodoroInterval);
+  document.getElementById("pomodoro-reflection").style.display = "block";
+  document.getElementById("pomodoro-reflection-input").value = "";
+}
+
+// 中断ボタン
+document.getElementById("pomodoro-abort-btn")?.addEventListener("click", () => {
+  if (confirm("タイマーを中断して戻りますか？現在までの学習実績は保存されません。")) {
+    clearInterval(pomodoroInterval);
+    document.getElementById("pomodoro-container").style.display = "none";
+    document.getElementById("app-container").style.display = "block";
+  }
+});
+
+// スキップボタン（動作検証用）
+document.getElementById("pomodoro-skip-btn")?.addEventListener("click", () => {
+  if (pomodoroState === "focus" || pomodoroState === "break") {
+    pomodoroTimeLeft = Math.min(pomodoroTimeLeft, 3); // 残り3秒に短縮
+    showToast("🕒 タイマーをスキップしました (残り3秒)", "info");
+  }
+});
+
+// 振り返り保存ボタン
+document.getElementById("pomodoro-submit-reflection-btn")?.addEventListener("click", async () => {
+  const reflection = document.getElementById("pomodoro-reflection-input").value.trim();
+  const completedRounds = pomodoroState === "break" ? pomodoroCurrentRound - 1 : pomodoroCurrentRound;
+  
+  // 0回完了の場合は保存せずに戻ることも可能にする
+  if (completedRounds <= 0) {
+    showToast("完了したポモドーロがありません。", "warning");
+    document.getElementById("pomodoro-container").style.display = "none";
+    document.getElementById("app-container").style.display = "block";
+    return;
+  }
+  
+  const totalMinutes = pomodoroFocusMinutesAcc;
+  const now = new Date();
+  
+  try {
+    // 1. 進捗情報をprogressに記録
+    await addDoc(userCollection("progress"), {
+      goalId: currentGoalId,
+      minutes: totalMinutes,
+      rounds: completedRounds,
+      date: todayISO(),
+      week: getWeekNumber(now)
+    });
+    
+    // 2. 目標側の累積時間と履歴を更新
+    const newTotal = (goalDataForTimer.total || 0) + totalMinutes;
+    const newCompletedRounds = (goalDataForTimer.completedRounds || 0) + completedRounds;
+    const historyItem = {
+      task: currentTaskText,
+      rounds: completedRounds,
+      minutes: totalMinutes,
+      reflection: reflection,
+      date: todayISO(),
+      createdAt: new Date().toISOString()
+    };
+    const newHistory = [...(goalDataForTimer.pomodoroHistory || []), historyItem];
+    
+    // タスク一覧から現在のタスクを削除する（完了したため）
+    const newTasks = [...(goalDataForTimer.tasks || [])];
+    newTasks.splice(currentTaskIndex, 1);
+    
+    await updateDoc(doc(db, "users", currentUser.uid, "goals", currentGoalId), {
+      total: newTotal,
+      completedRounds: newCompletedRounds,
+      pomodoroHistory: newHistory,
+      tasks: newTasks
+    });
+    
+    // 3. XP加算（ポモドーロ完了回数のみをXP対象とする: 1回につき20XP）
+    const xpReward = completedRounds * 20;
+    await addXP(xpReward);
+    
+    showToast(`⏱ ${completedRounds}回完了！ +${xpReward} XPを獲得！`, "success");
+    
+    // 目標達成お祝いチェック
+    const targetRounds = goalDataForTimer.targetRounds || Math.round((goalDataForTimer.targetMinutes || 25) / 25) || 1;
+    if (newCompletedRounds >= targetRounds) {
+      celebrateGoal(goalDataForTimer.title);
+      await addXP(100);
+    }
+    
+    // アプリ画面に戻る
+    document.getElementById("pomodoro-container").style.display = "none";
+    document.getElementById("app-container").style.display = "block";
+    await loadGoals();
+  } catch (e) {
+    console.error("Save Pomodoro progress error:", e);
+    showToast("学習記録の保存に失敗しました", "error");
+  }
+});
+
+// ================================================================
+// タスクリスト（1日/週間）の表示・非表示切り替えイベントリスナー
+// ================================================================
+document.getElementById("toggleDayTasksBtn")?.addEventListener("click", () => {
+  document.getElementById("dayTasks").classList.toggle("collapsed");
+});
+document.getElementById("toggleWeekTasksBtn")?.addEventListener("click", () => {
+  document.getElementById("weekTasks").classList.toggle("collapsed");
+});

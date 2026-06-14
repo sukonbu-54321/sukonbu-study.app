@@ -870,3 +870,334 @@ select option { background: var(--bg-card); }
   .auth-card { padding: 28px 20px; }
   button, input, select { min-height: 44px; font-size: 16px; }
 }
+
+/* ============================================================
+   ポモドーロタイマー画面デザイン
+   ============================================================ */
+#pomodoro-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px 16px;
+  background: radial-gradient(circle at 50% 0%, #17153b 0%, #060608 100%);
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  overflow-y: auto;
+}
+
+.pomodoro-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 480px;
+  padding: 32px;
+  animation: taskIn 0.4s var(--ease-spring);
+  position: relative;
+}
+
+.pomodoro-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 16px;
+}
+
+.pomodoro-title {
+  font-weight: 700;
+  color: var(--text-primary);
+  font-size: var(--font-lg);
+  letter-spacing: -0.01em;
+}
+
+#pomodoro-task-name {
+  font-size: var(--font-xl);
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 28px;
+  color: #fff;
+  word-break: break-all;
+}
+
+/* 円形タイマー */
+.timer-circle-wrap {
+  position: relative;
+  width: 240px;
+  height: 240px;
+  margin: 0 auto 28px auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.timer-svg {
+  transform: rotate(-90deg);
+  width: 100%;
+  height: 100%;
+}
+
+.timer-bg-circle {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.04);
+  stroke-width: 8;
+}
+
+.timer-progress-circle {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 8;
+  stroke-linecap: round;
+  stroke-dasharray: 565.48; /* 2 * PI * 90 */
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 0.1s linear, stroke 0.3s ease;
+  filter: drop-shadow(0 0 6px var(--accent-glow));
+}
+
+.timer-text-content {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  inset: 0;
+}
+
+.status-label {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.time-display {
+  font-size: var(--font-2xl);
+  font-weight: 800;
+  font-family: 'Outfit', sans-serif;
+  color: #fff;
+  line-height: 1.1;
+}
+
+.overtime-display {
+  font-size: var(--font-md);
+  font-weight: 700;
+  color: var(--danger);
+  animation: pulse 1s infinite alternate;
+  margin-top: 4px;
+}
+
+.round-label {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  margin-top: 6px;
+  font-weight: 500;
+}
+
+/* アラート・お知らせ */
+.pomodoro-alert {
+  background: rgba(255, 94, 108, 0.1);
+  border: 1px solid rgba(255, 94, 108, 0.25);
+  color: var(--danger);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  text-align: center;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 24px;
+  animation: alertPulse 1.5s infinite ease-in-out;
+}
+
+.pomodoro-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 繰り返し・戻るダイアログ */
+.dialog-box, .reflection-box {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  margin-top: 16px;
+  animation: taskIn 0.3s var(--ease-spring);
+}
+
+.dialog-box h3, .reflection-box h3 {
+  font-size: var(--font-md);
+  margin-bottom: 8px;
+  color: #fff;
+}
+
+.dialog-box p, .reflection-box p {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.dialog-actions .btn {
+  flex: 1;
+}
+
+.reflection-box textarea {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 14px;
+  font-family: var(--font);
+  font-size: var(--font-sm);
+  resize: vertical;
+  outline: none;
+}
+
+.reflection-box textarea:focus {
+  border-color: var(--border-focus);
+}
+
+/* 履歴セクション (目標詳細最下部) */
+.goal-history-section {
+  margin-top: 24px;
+  border-top: 1px dashed var(--border);
+  padding-top: 20px;
+}
+
+.goal-history-title {
+  font-size: var(--font-sm);
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.goal-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.goal-history-item {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  font-size: var(--font-sm);
+}
+
+.goal-history-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.goal-history-task {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.goal-history-reflection {
+  color: var(--text-secondary);
+  background: rgba(0, 0, 0, 0.15);
+  padding: 8px;
+  border-radius: 4px;
+  margin-top: 6px;
+  font-style: italic;
+  font-size: var(--font-xs);
+}
+
+/* 画面明滅エフェクト (集中終了時) */
+@keyframes alertPulse {
+  0% { box-shadow: 0 0 4px rgba(255, 94, 108, 0.2); }
+  50% { box-shadow: 0 0 16px rgba(255, 94, 108, 0.6); background: rgba(255, 94, 108, 0.18); }
+  100% { box-shadow: 0 0 4px rgba(255, 94, 108, 0.2); }
+}
+
+@keyframes pulse {
+  from { opacity: 0.6; }
+  to { opacity: 1; }
+}
+
+/* 背景赤色点滅 (集中終了状態) */
+body.pomodoro-focus-ended #pomodoro-container {
+  background: radial-gradient(circle at 50% 0%, #2f1017 0%, #0c0406 100%);
+}
+body.pomodoro-focus-ended .timer-progress-circle {
+  stroke: var(--danger);
+  filter: drop-shadow(0 0 10px rgba(255, 94, 108, 0.8));
+}
+
+/* ============================================================
+   履歴・タスクリスト追加UI要素のスタイル
+   ============================================================ */
+.btn-toggle-history {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: var(--font-xs);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  margin-left: 8px;
+  font-weight: 600;
+  transition: background 0.2s, color 0.2s;
+  min-height: auto;
+}
+
+.btn-toggle-history:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.goal-history-list.collapsed {
+  display: none;
+}
+
+.task-list.collapsed {
+  display: none;
+}
+
+.task-list.collapsed::after {
+  display: none !important;
+}
+
+.task-list li .btn-delete-task {
+  background: transparent;
+  border: none;
+  color: var(--danger);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 8px;
+  min-height: auto;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+  opacity: 0.5;
+  transition: opacity 0.2s, transform 0.2s;
+  box-shadow: none;
+}
+
+.task-list li .btn-delete-task:hover {
+  opacity: 1;
+  transform: scale(1.15);
+  background: transparent;
+}
+
+

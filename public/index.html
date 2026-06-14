@@ -125,7 +125,7 @@
           <div class="goal-add-form">
             <input type="text" id="goalInput" placeholder="目標タイトルを入力..." aria-label="目標タイトル">
             <input type="date" id="goalDueDate" aria-label="期限日">
-            <input type="number" id="goalTargetMinutes" placeholder="目標時間（分）" min="1" aria-label="目標時間（分）">
+            <input type="number" id="goalTargetRounds" placeholder="目標回数 (ポモドーロ数)" min="1" aria-label="目標回数">
             <button id="addGoalBtn" class="btn btn-primary">+ 目標追加</button>
           </div>
         </section>
@@ -149,17 +149,75 @@
 
           <div class="task-columns">
             <div class="task-column">
-              <h3 class="task-column-title day-label">📅 1日タスク</h3>
+              <h3 class="task-column-title day-label" style="display:flex; align-items:center;">
+                <span>📅 1日タスク</span>
+                <button id="toggleDayTasksBtn" class="btn btn-ghost btn-sm" style="margin-left:auto; padding:2px 8px; font-size:12px; min-height:auto;">表示/非表示</button>
+              </h3>
               <ul id="dayTasks" class="task-list"></ul>
             </div>
             <div class="task-column">
-              <h3 class="task-column-title week-label">📆 週間タスク</h3>
+              <h3 class="task-column-title week-label" style="display:flex; align-items:center;">
+                <span>📆 週間タスク</span>
+                <button id="toggleWeekTasksBtn" class="btn btn-ghost btn-sm" style="margin-left:auto; padding:2px 8px; font-size:12px; min-height:auto;">表示/非表示</button>
+              </h3>
               <ul id="weekTasks" class="task-list"></ul>
             </div>
           </div>
         </section>
 
       </main>
+    </div>
+  </div>
+
+  <!-- ===== ポモドーロタイマー画面 ===== -->
+  <div id="pomodoro-container" style="display:none;" role="main">
+    <div class="pomodoro-card">
+      <div class="pomodoro-header">
+        <span class="pomodoro-title">⚡ Pomodoro Quest</span>
+        <button id="pomodoro-abort-btn" class="btn btn-ghost btn-sm">一時中断して戻る</button>
+      </div>
+
+      <div class="pomodoro-body">
+        <h2 id="pomodoro-task-name">タスク名</h2>
+
+        <div class="timer-circle-wrap">
+          <svg class="timer-svg" viewBox="0 0 200 200">
+            <circle class="timer-bg-circle" cx="100" cy="100" r="90" />
+            <circle id="timer-progress-circle" class="timer-progress-circle" cx="100" cy="100" r="90" />
+          </svg>
+          <div class="timer-text-content">
+            <div id="pomodoro-status" class="status-label">集中時間</div>
+            <div id="pomodoro-timer-text" class="time-display">25:00</div>
+            <div id="pomodoro-overtime-display" class="overtime-display" style="display:none;">+00:00</div>
+            <div id="pomodoro-round-indicator" class="round-label">1 / 1 回目</div>
+          </div>
+        </div>
+
+        <div id="pomodoro-alert" class="pomodoro-alert" style="display:none;">
+          🎉 集中時間が終了しました！<br>ボタンを押して休憩に入ってください。
+        </div>
+
+        <div class="pomodoro-controls">
+          <button id="pomodoro-action-btn" class="btn btn-primary btn-full" style="display:none;">休憩を開始する</button>
+          <button id="pomodoro-skip-btn" class="btn btn-ghost btn-sm" style="margin-top: 10px;">🕒 スキップ (検証用)</button>
+        </div>
+
+        <div id="pomodoro-next-dialog" class="dialog-box" style="display:none;">
+          <h3>☕ 休憩終了</h3>
+          <p>次のラウンドを開始しますか？それとも終了しますか？</p>
+          <div class="dialog-actions">
+            <button id="pomodoro-repeat-btn" class="btn btn-primary">繰り返す</button>
+            <button id="pomodoro-finish-early-btn" class="btn btn-ghost">終了して戻る</button>
+          </div>
+        </div>
+
+        <div id="pomodoro-reflection" class="reflection-box" style="display:none;">
+          <h3>📝 今日の気づき・学んだこと</h3>
+          <p>今回の学習で学んだことや気づいた点を記録しましょう。</p>
+          <textarea id="pomodoro-reflection-input" placeholder="例: 集中してタスクを完了できた。数式の理解が深まった。" rows="4"></textarea>
+          <button id="pomodoro-submit-reflection-btn" class="btn btn-success btn-full">振り返りを保存して完了</button>
+        </div>
+      </div>
     </div>
   </div>
 
