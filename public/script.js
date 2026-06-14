@@ -640,7 +640,6 @@ function renderGoalCard(goalData, container) {
         tasks: newTasks
       });
       showToast("タスクを追加しました ✅", "success");
-      await addXP(10);
       await loadGoals();
     } catch (e) {
       console.error("addTask error:", e);
@@ -846,7 +845,6 @@ document.getElementById("addGlobalTaskBtn")?.addEventListener("click", async () 
     });
     taskInput.value = "";
     showToast(`📋 タスクを追加しました！`, "success");
-    await addXP(5);
     await loadGlobalTasks();
   } catch (e) {
     console.error("addGlobalTask error:", e);
@@ -915,8 +913,9 @@ async function loadGlobalTasks() {
       const completeTask = async () => {
         try {
           await deleteDoc(doc(db, "users", currentUser.uid, "tasks", t.id));
-          await addXP(15);
-          showToast(`✅ タスク完了！ +15 XP`, "success");
+          const xpAmt = t.type === "day" ? 5 : 10;
+          await addXP(xpAmt);
+          showToast(`✅ タスク完了！ +${xpAmt} XP`, "success");
           await loadGlobalTasks();
         } catch (e) {
           console.error("completeTask error:", e);
