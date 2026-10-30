@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://*.firebasestorage.app wss://*.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com; img-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self';">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="description" content="StudyQuest - ゲーミフィケーションで学習を楽しくする勉強管理アプリ。目標設定、タスク管理、XP・レベルシステムで毎日の勉強をRPGに変えよう。">
   <title>StudyQuest - 勉強管理アプリ</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -35,11 +38,11 @@
       <div id="panel-login" role="tabpanel" aria-labelledby="tab-login">
         <div class="input-group">
           <label for="email-login">メールアドレス</label>
-          <input type="email" id="email-login" placeholder="example@email.com" autocomplete="email">
+          <input type="email" id="email-login" placeholder="example@email.com" autocomplete="email" maxlength="254">
         </div>
         <div class="input-group">
           <label for="password-login">パスワード</label>
-          <input type="password" id="password-login" placeholder="パスワード" autocomplete="current-password">
+          <input type="password" id="password-login" placeholder="パスワード" autocomplete="current-password" maxlength="128">
         </div>
         <button id="loginBtn" class="btn btn-primary btn-full">ログイン</button>
       </div>
@@ -47,11 +50,11 @@
       <div id="panel-register" role="tabpanel" aria-labelledby="tab-register" hidden>
         <div class="input-group">
           <label for="email-register">メールアドレス</label>
-          <input type="email" id="email-register" placeholder="example@email.com" autocomplete="email">
+          <input type="email" id="email-register" placeholder="example@email.com" autocomplete="email" maxlength="254">
         </div>
         <div class="input-group">
-          <label for="password-register">パスワード（6文字以上）</label>
-          <input type="password" id="password-register" placeholder="パスワード" autocomplete="new-password">
+          <label for="password-register">パスワード（6文字以上128文字以下）</label>
+          <input type="password" id="password-register" placeholder="パスワード" autocomplete="new-password" minlength="6" maxlength="128">
         </div>
         <button id="registerBtn" class="btn btn-primary btn-full">新規登録</button>
       </div>
@@ -123,9 +126,9 @@
         <section class="card" aria-label="目標追加">
           <h2 class="card-title">🎯 目標を追加</h2>
           <div class="goal-add-form">
-            <input type="text" id="goalInput" placeholder="目標タイトルを入力..." aria-label="目標タイトル">
-            <input type="date" id="goalDueDate" aria-label="期限日">
-            <input type="number" id="goalTargetRounds" placeholder="目標回数 (ポモドーロ数)" min="1" aria-label="目標回数">
+            <input type="text" id="goalInput" placeholder="目標タイトルを入力..." aria-label="目標タイトル" maxlength="100">
+            <input type="date" id="goalDueDate" aria-label="期限日" min="2020-01-01" max="2099-12-31">
+            <input type="number" id="goalTargetRounds" placeholder="目標回数 (ポモドーロ数)" min="1" max="1000" aria-label="目標回数">
             <button id="addGoalBtn" class="btn btn-primary">+ 目標追加</button>
           </div>
         </section>
@@ -139,7 +142,7 @@
         <section class="card" aria-label="タスク管理">
           <h2 class="card-title">📋 タスク管理</h2>
           <div class="task-add-form">
-            <input type="text" id="taskInput" placeholder="タスク内容を入力..." aria-label="タスク内容">
+            <input type="text" id="taskInput" placeholder="タスク内容を入力..." aria-label="タスク内容" maxlength="150">
             <select id="taskType" aria-label="タスク種別">
               <option value="day">1日タスク</option>
               <option value="week">週間タスク</option>
@@ -214,7 +217,7 @@
         <div id="pomodoro-reflection" class="reflection-box" style="display:none;">
           <h3>📝 今日の気づき・学んだこと</h3>
           <p>今回の学習で学んだことや気づいた点を記録しましょう。</p>
-          <textarea id="pomodoro-reflection-input" placeholder="例: 集中してタスクを完了できた。数式の理解が深まった。" rows="4"></textarea>
+          <textarea id="pomodoro-reflection-input" placeholder="例: 集中してタスクを完了できた。数式の理解が深まった。" rows="4" maxlength="1000"></textarea>
           <button id="pomodoro-submit-reflection-btn" class="btn btn-success btn-full">振り返りを保存して完了</button>
         </div>
       </div>

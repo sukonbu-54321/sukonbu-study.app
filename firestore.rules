@@ -1,0 +1,32 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // デフォルトですべてのアクセスを拒否
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ユーザー毎のドキュメントおよびサブコレクションに対する厳格なアクセス制御
+    match /users/{userId} {
+      // ユーザー本人（認証済みかつUIDが一致）のみ読み書き可能
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      // 目標サブコレクション
+      match /goals/{goalId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // タスクサブコレクション
+      match /tasks/{taskId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // 進捗サブコレクション
+      match /progress/{progressId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+  }
+}

@@ -9,6 +9,19 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 // ================================================================
+// サニタイズ・セキュリティユーティリティ
+// ================================================================
+function escapeHTML(str) {
+  if (str === null || str === undefined) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+// ================================================================
 // Toast 通知ユーティリティ (Firebase初期化エラー表示でも使うため最上部に配置)
 // ================================================================
 function showToast(msg, type = "info", durationMs = 3500) {
@@ -122,14 +135,25 @@ function getRemainingDays(dueDate) {
 }
 
 function createProgressBar(current, target, unit = "分") {
-  const pct = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0;
+  const currentNum = Number(current) || 0;
+  const targetNum  = Number(target) || 0;
+  const pct = targetNum > 0 ? Math.min(100, Math.max(0, Math.round((currentNum / targetNum) * 100))) : 0;
 
   const wrap = document.createElement("div");
   wrap.className = "progress-wrap";
 
   const label = document.createElement("div");
   label.className = "progress-label";
-  label.innerHTML = `<span>累計 ${current} / ${target} ${unit}</span><span class="pct">${pct}%</span>`;
+
+  const countSpan = document.createElement("span");
+  countSpan.textContent = `累計 ${currentNum} / ${targetNum} ${unit}`;
+
+  const pctSpan = document.createElement("span");
+  pctSpan.className = "pct";
+  pctSpan.textContent = `${pct}%`;
+
+  label.appendChild(countSpan);
+  label.appendChild(pctSpan);
 
   const bar = document.createElement("div");
   bar.className = "progress-bar";
@@ -191,13 +215,22 @@ document.getElementById("registerBtn")?.addEventListener("click", async () => {
   if (!auth) { showToast("Firebaseが初期化されていません", "error"); return; }
   const email    = document.getElementById("email-register").value.trim();
   const password = document.getElementById("password-register").value;
+  if (!email || email.length > 254) {
+    showToast("有効なメールアドレスを入力してください", "warning");
+    return;
+  }
+  if (!password || password.length < 6 || password.length > 128) {
+    showToast("パスワードは6文字以上128文字以下で入力してください", "warning");
+    return;
+  }
   setAuthStatus("登録中...");
   try {
     await createUserWithEmailAndPassword(auth, email, password);
     showToast("🎉 登録完了！ようこそStudyQuestへ！", "success");
   } catch (e) {
-    setAuthStatus("エラー: " + friendlyAuthError(e.code));
-    showToast("登録に失敗しました: " + friendlyAuthError(e.code), "error");
+    const errText = friendlyAuthError(e.code);
+    setAuthStatus("エラー: " + errText);
+    showToast("登録に失敗しました: " + errText, "error");
   }
 });
 
@@ -205,13 +238,18 @@ document.getElementById("loginBtn")?.addEventListener("click", async () => {
   if (!auth) { showToast("Firebaseが初期化されていません", "error"); return; }
   const email    = document.getElementById("email-login").value.trim();
   const password = document.getElementById("password-login").value;
+  if (!email || !password) {
+    showToast("メールアドレスとパスワードを入力してください", "warning");
+    return;
+  }
   setAuthStatus("ログイン中...");
   try {
     await signInWithEmailAndPassword(auth, email, password);
     showToast("✅ ログインしました！", "success");
   } catch (e) {
-    setAuthStatus("エラー: " + friendlyAuthError(e.code));
-    showToast("ログインに失敗しました: " + friendlyAuthError(e.code), "error");
+    const errText = friendlyAuthError(e.code);
+    setAuthStatus("エラー: " + errText);
+    showToast("ログインに失敗しました: " + errText, "error");
   }
 });
 
@@ -233,15 +271,15 @@ function setAuthStatus(msg) {
 
 function friendlyAuthError(code) {
   const map = {
-    "auth/user-not-found":      "メールアドレスが見つかりません",
-    "auth/wrong-password":      "パスワードが間違っています",
-    "auth/invalid-email":       "メールアドレスの形式が正しくありません",
-    "auth/email-already-in-use":"このメールアドレスはすでに使用されています",
-    "auth/weak-password":       "パスワードは6文字以上にしてください",
-    "auth/too-many-requests":   "しばらく時間をおいてから試してください",
-    "auth/invalid-credential":  "メールアドレスまたはパスワードが正しくありません",
+    "auth/user-not-found":       "メールアドレスが見つかりません",
+    "auth/wrong-password":       "パスワードが間違っています",
+    "auth/invalid-email":        "メールアドレスの形式が正しくありません",
+    "auth/email-already-in-use": "このメールアドレスはすでに使用されています",
+    "auth/weak-password":        "パスワードは6文字以上にしてください",
+    "auth/too-many-requests":    "しばらく時間をおいてから試してください",
+    "auth/invalid-credential":   "メールアドレスまたはパスワードが正しくありません",
   };
-  return map[code] || code;
+  return map[code] || "認証エラーが発生しました。入力内容を確認してください。";
 }
 
 if (auth) {
@@ -374,10 +412,13 @@ function updateUI() {
 function updateHeaderStats() {
   const el = document.getElementById("headerStats");
   if (!el) return;
+  const safeLevel  = Number(level) || 1;
+  const safeXP     = Number(xp) || 0;
+  const safeStreak = Number(streak) || 0;
   el.innerHTML = `
-    <div class="header-stat"><span class="stat-icon">⚡</span> Lv.${level}</div>
-    <div class="header-stat"><span class="stat-icon">✨</span> XP ${xp}/${level * 100}</div>
-    <div class="header-stat"><span class="stat-icon">🔥</span> ${streak}日連続</div>
+    <div class="header-stat"><span class="stat-icon">⚡</span> Lv.${safeLevel}</div>
+    <div class="header-stat"><span class="stat-icon">✨</span> XP ${safeXP}/${safeLevel * 100}</div>
+    <div class="header-stat"><span class="stat-icon">🔥</span> ${safeStreak}日連続</div>
   `;
 }
 
@@ -395,13 +436,22 @@ function updateProfileCard() {
 function updateBadgeList() {
   const el = document.getElementById("badgeContainer");
   if (!el) return;
-  el.innerHTML = badges.map(b => `<li>${b}</li>`).join("");
+  el.textContent = "";
+  badges.forEach(b => {
+    const li = document.createElement("li");
+    li.textContent = String(b);
+    el.appendChild(li);
+  });
 }
 
 function updateRanking() {
   const el = document.getElementById("rankingStatus");
   if (!el) return;
-  el.innerHTML = `最高レベル記録: <strong>Lv.${bestLevel}</strong>`;
+  el.textContent = "";
+  el.append("最高レベル記録: ");
+  const strong = document.createElement("strong");
+  strong.textContent = `Lv.${Number(bestLevel) || 1}`;
+  el.appendChild(strong);
 }
 
 function updateAvatar() {
@@ -425,17 +475,19 @@ const storyStages = [
 function updateStory() {
   const el = document.getElementById("storyContainer");
   if (!el) return;
+  el.textContent = "";
   const unlocked = storyStages.filter(s => level >= s.level);
-  if (unlocked.length === 0) {
-    el.innerHTML = "";
-    return;
-  }
-  el.innerHTML = unlocked.map(s => `
-    <div class="story-card">
-      <h4>Lv.${s.level} — ${s.title}</h4>
-      <p>${s.text}</p>
-    </div>
-  `).join("");
+  unlocked.forEach(s => {
+    const card = document.createElement("div");
+    card.className = "story-card";
+    const h4 = document.createElement("h4");
+    h4.textContent = `Lv.${s.level} — ${s.title}`;
+    const p = document.createElement("p");
+    p.textContent = s.text;
+    card.appendChild(h4);
+    card.appendChild(p);
+    el.appendChild(card);
+  });
 }
 
 // ================================================================
@@ -489,12 +541,16 @@ document.getElementById("addGoalBtn")?.addEventListener("click", async () => {
   const coll = userCollection("goals");
   if (!coll) return;
   const title         = document.getElementById("goalInput").value.trim();
-  const dueDate       = document.getElementById("goalDueDate").value;
-  const targetRounds  = parseInt(document.getElementById("goalTargetRounds").value);
+  const dueDate       = document.getElementById("goalDueDate").value.trim();
+  const targetRounds  = parseInt(document.getElementById("goalTargetRounds").value, 10);
 
   if (!title) { showToast("目標タイトルを入力してください", "warning"); return; }
-  if (!dueDate) { showToast("期限日を入力してください", "warning"); return; }
-  if (!targetRounds || targetRounds <= 0) { showToast("目標回数を正しく入力してください", "warning"); return; }
+  if (title.length > 100) { showToast("目標タイトルは100文字以内で入力してください", "warning"); return; }
+  if (!dueDate || !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) { showToast("有効な期限日を入力してください", "warning"); return; }
+  if (!Number.isInteger(targetRounds) || targetRounds <= 0 || targetRounds > 1000) {
+    showToast("目標回数は1〜1000の間で正しく入力してください", "warning");
+    return;
+  }
 
   try {
     await addDoc(coll, {
@@ -601,16 +657,33 @@ function renderGoalCard(goalData, container) {
 
   const statsWrap = document.createElement("div");
   statsWrap.className = "progress-stats";
-  statsWrap.innerHTML = `
-    <div class="progress-stat-item" id="today-${goalId}">
-      <span class="label">📅 今日</span>
-      <span class="value">読み込み中…</span>
-    </div>
-    <div class="progress-stat-item" id="week-${goalId}">
-      <span class="label">📆 今週</span>
-      <span class="value">読み込み中…</span>
-    </div>
-  `;
+
+  const todayItem = document.createElement("div");
+  todayItem.className = "progress-stat-item";
+  todayItem.id = `today-${goalId}`;
+  const todayLabel = document.createElement("span");
+  todayLabel.className = "label";
+  todayLabel.textContent = "📅 今日";
+  const todayVal = document.createElement("span");
+  todayVal.className = "value";
+  todayVal.textContent = "読み込み中…";
+  todayItem.appendChild(todayLabel);
+  todayItem.appendChild(todayVal);
+
+  const weekItem = document.createElement("div");
+  weekItem.className = "progress-stat-item";
+  weekItem.id = `week-${goalId}`;
+  const weekLabel = document.createElement("span");
+  weekLabel.className = "label";
+  weekLabel.textContent = "📆 今週";
+  const weekVal = document.createElement("span");
+  weekVal.className = "value";
+  weekVal.textContent = "読み込み中…";
+  weekItem.appendChild(weekLabel);
+  weekItem.appendChild(weekVal);
+
+  statsWrap.appendChild(todayItem);
+  statsWrap.appendChild(weekItem);
   inner.appendChild(statsWrap);
 
   const taskFormGrid = document.createElement("div");
@@ -619,11 +692,13 @@ function renderGoalCard(goalData, container) {
   const taskInputEl = document.createElement("input");
   taskInputEl.placeholder = "タスク内容";
   taskInputEl.setAttribute("aria-label", "タスク内容");
+  taskInputEl.maxLength = 150;
 
   const timeInputEl = document.createElement("input");
   timeInputEl.type = "number";
   timeInputEl.placeholder = "回数 (25分集中/5分休憩)";
   timeInputEl.min = "1";
+  timeInputEl.max = "1000";
   timeInputEl.setAttribute("aria-label", "回数");
 
   const addTaskBtn = document.createElement("button");
@@ -631,9 +706,13 @@ function renderGoalCard(goalData, container) {
   addTaskBtn.textContent = "+ タスク";
   addTaskBtn.addEventListener("click", async () => {
     const task = taskInputEl.value.trim();
-    const rounds = parseInt(timeInputEl.value);
+    const rounds = parseInt(timeInputEl.value, 10);
     if (!task) { showToast("タスク内容を入力してください", "warning"); return; }
-    if (!rounds || rounds <= 0) { showToast("回数を正しく入力してください", "warning"); return; }
+    if (task.length > 150) { showToast("タスク内容は150文字以内で入力してください", "warning"); return; }
+    if (!Number.isInteger(rounds) || rounds <= 0 || rounds > 1000) {
+      showToast("回数は1〜1000の間で正しく入力してください", "warning");
+      return;
+    }
     const newTasks = [...(goalData.tasks || []), { task, rounds }];
     try {
       await updateDoc(doc(db, "users", currentUser.uid, "goals", goalId), {
@@ -713,7 +792,10 @@ function renderGoalCard(goalData, container) {
   historyTitle.style.display = "flex";
   historyTitle.style.alignItems = "center";
   historyTitle.style.justifyContent = "space-between";
-  historyTitle.innerHTML = `<span>📊 ポモドーロ学習履歴</span>`;
+
+  const historyTitleSpan = document.createElement("span");
+  historyTitleSpan.textContent = "📊 ポモドーロ学習履歴";
+  historyTitle.appendChild(historyTitleSpan);
   
   const historyList = document.createElement("div");
   historyList.className = "goal-history-list";
@@ -735,7 +817,16 @@ function renderGoalCard(goalData, container) {
       
       const meta = document.createElement("div");
       meta.className = "goal-history-meta";
-      meta.innerHTML = `<span>📅 ${item.date}</span><span>⏱ ${item.minutes || (item.rounds * 25)}分 (${item.rounds}回)</span>`;
+
+      const dateSpan = document.createElement("span");
+      dateSpan.textContent = `📅 ${item.date || ""}`;
+
+      const timeSpan = document.createElement("span");
+      const mins = item.minutes || ((item.rounds || 0) * 25);
+      timeSpan.textContent = `⏱ ${mins}分 (${item.rounds || 0}回)`;
+
+      meta.appendChild(dateSpan);
+      meta.appendChild(timeSpan);
       
       const task = document.createElement("div");
       task.className = "goal-history-task";
@@ -772,8 +863,13 @@ function renderGoalCard(goalData, container) {
   editTargetBtn.textContent = "⚙ 目標回数編集";
   editTargetBtn.addEventListener("click", async () => {
     const currentTarget = goalData.targetRounds || Math.round((goalData.targetMinutes || 25) / 25) || 1;
-    const newTarget = parseInt(prompt("新しい目標回数（ポモドーロ数）を入力", currentTarget));
-    if (!newTarget || newTarget <= 0) return;
+    const inputVal = prompt("新しい目標回数（ポモドーロ数: 1〜1000）を入力", String(currentTarget));
+    if (inputVal === null) return;
+    const newTarget = parseInt(inputVal.trim(), 10);
+    if (!Number.isInteger(newTarget) || newTarget <= 0 || newTarget > 1000) {
+      showToast("目標回数は1〜1000の間で正しく入力してください", "warning");
+      return;
+    }
     try {
       await updateDoc(doc(db, "users", currentUser.uid, "goals", goalId), { targetRounds: newTarget });
       showToast("目標回数を更新しました", "success");
@@ -835,8 +931,10 @@ document.getElementById("addGlobalTaskBtn")?.addEventListener("click", async () 
   const taskInput = document.getElementById("taskInput");
   const taskType  = document.getElementById("taskType");
   const task = taskInput?.value.trim();
-  const type = taskType?.value;
+  const rawType = taskType?.value;
+  const type = rawType === "week" ? "week" : "day";
   if (!task) { showToast("タスク内容を入力してください", "warning"); return; }
+  if (task.length > 150) { showToast("タスク内容は150文字以内で入力してください", "warning"); return; }
   try {
     await addDoc(coll, {
       text: task,
@@ -1164,7 +1262,7 @@ document.getElementById("pomodoro-skip-btn")?.addEventListener("click", () => {
 
 // 振り返り保存ボタン
 document.getElementById("pomodoro-submit-reflection-btn")?.addEventListener("click", async () => {
-  const reflection = document.getElementById("pomodoro-reflection-input").value.trim();
+  const reflection = document.getElementById("pomodoro-reflection-input").value.trim().slice(0, 1000);
   const completedRounds = pomodoroState === "break" ? pomodoroCurrentRound - 1 : pomodoroCurrentRound;
   
   // 0回完了の場合は保存せずに戻ることも可能にする

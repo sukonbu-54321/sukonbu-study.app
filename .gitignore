@@ -33,7 +33,7 @@ application_default_credentials.json
 firebase-debug.log
 firebase-debug.*.log
 .firebaserc
-firebase.json
+# firebase.json (Hosting設定およびFirestoreセキュリティルール定義のため追跡)
 
 
 # Firebase Dataconnect 生成ファイル
