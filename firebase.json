@@ -3,6 +3,7 @@
     "rules": "firestore.rules"
   },
   "hosting": {
+    "site": "studyquest-54321",
     "public": "public",
     "ignore": [
       "firebase.json",
